@@ -1,0 +1,35 @@
+# dependencias y builds
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# entornos con secretos reales (los .env.test committeados llevan claves falsas;
+# deploy.env NO lleva secretos y SÍ se committea)
+.env
+.env.local
+.env.*.local
+
+# datos y artefactos de runtime
+/data/
+playwright-report/
+test-results/
+
+# E2E Playwright: sesión persistida del setup + runtime del stack (efímeros)
+apps/web/e2e/.auth/
+apps/web/e2e/.runtime.json
+
+# claude code — local de máquina, no del proyecto
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# huella de deploy (la escribe redeploy.sh en el checkout de producción)
+.deployed
+
+# sistema
+.DS_Store
+
+# artefactos de otros arneses de agentes (espejos locales de máquina, no del proyecto)
+.agents/
+.codex/

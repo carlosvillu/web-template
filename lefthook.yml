@@ -1,0 +1,22 @@
+# lefthook.yml (raíz) — backend/references/tooling.md §7
+# Pre-commit rápido (autofix sobre staged), pre-push barato (typecheck).
+# Los tests NO van en hooks: el gate real es `pnpm gate` (CI local).
+pre-commit:
+  jobs: # secuencial: eslint corrige código primero, prettier formatea el resultado
+    - name: eslint
+      glob: '*.{ts,tsx}'
+      run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true # re-stagea lo corregido: el commit lleva el fix
+    - name: prettier
+      # js/mjs/cjs incluidos: postcss.config.mjs y similares también pasan por
+      # format:check en el gate — sin ellos el pre-commit dejaba ese hueco.
+      glob: '*.{ts,tsx,js,mjs,cjs,css,json,md,yml,yaml}'
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: typecheck
+      # `pnpm typecheck` (script raíz): cubre también el tsconfig raíz
+      # (eslint.config.ts, vitest.config.ts), no solo los paquetes.
+      run: pnpm typecheck
