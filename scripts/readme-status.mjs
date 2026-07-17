@@ -25,6 +25,13 @@ const README = join(ROOT, 'README.md');
 const BEGIN = '<!-- STATUS-TABLE:BEGIN — generado por `pnpm readme:status`, no editar a mano -->';
 const END = '<!-- STATUS-TABLE:END -->';
 
+// Ids de fase válidos: `F0..Fn` (numeradas) y `T<LETRA>` para las transversales
+// — hoy solo `TD`, el design system. Va aquí arriba porque parseDelivers y
+// parsePlanning DEBEN reconocer exactamente el mismo conjunto: si una fase casa
+// en una y no en la otra, sus tareas desaparecen del recuento en silencio y la
+// portada miente por defecto (que es justo lo que este script existe para evitar).
+const PHASE_ID = String.raw`F[\dA-Za-z]+|T[A-Z][\dA-Za-z]*`;
+
 /**
  * Lee la tabla «## Estado global» de planning.md y devuelve un mapa
  * id de fase → «Entrega observable al cerrar la fase» (tercera columna).
@@ -40,19 +47,19 @@ function parseDelivers(md) {
     }
     if (inSection && line.startsWith('## ')) break; // siguiente sección: fin
     if (!inSection) continue;
-    const row = line.match(/^\|\s*(F[\dA-Za-z]+)\s*\|([^|]*)\|([^|]*)\|/);
+    const row = line.match(new RegExp(String.raw`^\|\s*(${PHASE_ID})\s*\|([^|]*)\|([^|]*)\|`));
     if (row) delivers[row[1]] = row[3].trim();
   }
   return delivers;
 }
 
-/** Recorre planning.md agrupando las cabeceras `#### T…` bajo su `## F…`. */
+/** Recorre planning.md agrupando las cabeceras `#### T…` bajo su fase (`## F…` / `## TD…`). */
 function parsePlanning(md) {
   const phases = [];
   let current = null;
 
   for (const line of md.split('\n')) {
-    const phase = line.match(/^## (F[\dA-Za-z]+) — (.+)$/);
+    const phase = line.match(new RegExp(String.raw`^## (${PHASE_ID}) — (.+)$`));
     if (phase) {
       current = { id: phase[1], name: phase[2], done: 0, total: 0 };
       phases.push(current);

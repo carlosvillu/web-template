@@ -95,22 +95,12 @@ if [ "$NO_SYNC" = "0" ]; then
   write_footprint "$(git rev-parse --short HEAD)$DIRTY"
 fi
 
-step "2/5 · Red compartida con el Caddy central"
-# La red 'edge' une los contenedores del proyecto con el Caddy central del VPS,
-# que es quien termina TLS para TODOS los proyectos. El compose de prod debe
-# declarar esta red como external en el servicio web.
-docker network inspect "$EDGE_NETWORK" >/dev/null 2>&1 || docker network create "$EDGE_NETWORK"
-docker network inspect "$EDGE_NETWORK" --format '{{range .Containers}}{{.Name}} {{end}}' \
-  | grep -qw "$CADDY_CONTAINER" \
-  || docker network connect "$EDGE_NETWORK" "$CADDY_CONTAINER" 2>/dev/null \
-  || warn "no pude conectar $CADDY_CONTAINER a la red $EDGE_NETWORK (¿existe el Caddy central?)"
-
-step "3/5 · Reconstruyendo imágenes y levantando servicios"
+step "2/4 · Reconstruyendo imágenes y levantando servicios"
 # --build reconstruye; up -d recrea solo lo que cambió. Las migraciones se
 # aplican solas al arrancar web (con lock) — por eso el healthcheck da margen.
 $(compose) up -d --build
 
-step "4/5 · Esperando a que $WEB_SERVICE esté 'healthy'"
+step "3/4 · Esperando a que $WEB_SERVICE esté 'healthy'"
 web_container="${COMPOSE_PROJECT}-${WEB_SERVICE}-1"
 for i in $(seq 1 30); do
   state=$(docker inspect --format '{{.State.Health.Status}}' "$web_container" 2>/dev/null || echo "starting")
@@ -123,15 +113,27 @@ for i in $(seq 1 30); do
   [ "$i" = "30" ] && { bad "timeout esperando healthy"; exit 1; }
 done
 
-step "5/5 · Bloque del dominio en el Caddy central"
+step "4/4 · Bloque del dominio en el Caddy central"
 site_file="$CADDY_DIR/sites/$DOMAIN.caddy"
 if [ ! -f "$site_file" ]; then
   # Primera vez: crea el site block. El Caddyfile central debe hacer
   # `import sites/*.caddy`. TLS lo gestiona Caddy (o Cloudflare por delante).
+  #
+  # header_up X-Forwarded-For {client_ip}: SOBRESCRIBE el header con la IP del
+  # socket en vez de añadirla a lo que mandara el cliente — deja de ser
+  # client-controllable. Es un control de seguridad, no una casualidad de
+  # defaults, y por eso es explícito. OJO: si hay Cloudflare delante, esa IP es
+  # la de Cloudflare, NO la del visitante: la real va en CF-Connecting-IP y es
+  # la que debe usar cualquier rate-limit (SKILL.md §Topología).
+  #
+  # Si el proyecto tiene SSE, este bloque NO basta: la ruta de eventos necesita
+  # su propio handle con flush_interval -1 y sin encode. Se edita a mano.
   mkdir -p "$CADDY_DIR/sites"
   cat > "$site_file" <<EOF
 $DOMAIN {
-	reverse_proxy $CADDY_UPSTREAM
+	reverse_proxy $CADDY_UPSTREAM {
+		header_up X-Forwarded-For {client_ip}
+	}
 }
 EOF
   ok "creado $site_file → $CADDY_UPSTREAM"

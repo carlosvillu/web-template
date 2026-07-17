@@ -40,9 +40,9 @@ Los scripts detectan solos si el agente corre **EN el VPS de producción** o en 
 
 - **Modo `local`** (el agente YA está en el VPS): actualiza `main` (`git pull
   --ff-only`), reconstruye las imágenes del compose de prod, levanta, aplica
-  migraciones (van solas al arrancar web, con lock), conecta el proyecto al
-  **Caddy central** del VPS (red docker compartida `EDGE_NETWORK` + site block en
-  `CADDY_DIR/sites/DOMAIN.caddy` con validate+reload) y verifica desde fuera.
+  migraciones (van solas al arrancar web, con lock), publica el proyecto en el
+  **Caddy central** del VPS (site block en `CADDY_DIR/sites/DOMAIN.caddy` con
+  validate+reload, proxyando a `127.0.0.1:WEB_PORT`) y verifica desde fuera.
 - **Modo `remote`** (máquina de desarrollo): sincroniza el código con el VPS —
   por defecto `git push` + `git pull --ff-only` allí (el bucle SÍ puede hacer
   push); con `--rsync` envía el árbol local tal cual (para probar trabajo sin
@@ -51,24 +51,48 @@ Los scripts detectan solos si el agente corre **EN el VPS de producción** o en 
 
 ## Topología
 
+> **La fuente de verdad del VPS es su propio `~/AGENTS.md`** (inventario, puertos,
+> convenciones, trampas). Léelo antes de tocar producción: manda sobre esta skill.
+> Si algo estructural cambia (un puerto, un sitio, una convención), **actualízalo
+> allí en el mismo cambio** — lo exige ese fichero.
+
 ```
-Internet → CDN/proxy opcional (Cloudflare, SSL Full strict)
+Internet → Cloudflare (DNS + proxy naranja, SSL Full strict)
          → Caddy central  (CADDY_CONTAINER, CADDY_DIR — COMPARTIDO por todos los proyectos del VPS)
-         → red docker EDGE_NETWORK → web (Next standalone)
-                                     ├── postgres:16  (sin puerto publicado)
-                                     └── worker       (solo si el módulo cola existe)
+             · network_mode: host — es el ÚNICO proceso en 80/443
+         → 127.0.0.1:WEB_PORT → web (Next standalone)
+                                ├── postgres:16  (sin puerto publicado)
+                                └── worker       (solo si el módulo cola existe)
 ```
 
 - **El TLS no es de este proyecto**: lo termina el Caddy central. El
   `docker-compose.prod.yml` no lleva reverse proxy. El enrutado se toca en
   `CADDY_DIR/sites/DOMAIN.caddy` y hay que **recargar** (§Caddy) — `redeploy.sh`
   crea el bloque la primera vez y recarga siempre.
-- **web NUNCA publica puertos en `0.0.0.0`.** O se une a la red `EDGE_NETWORK`
-  (external en el compose) y Caddy le llega por nombre de servicio
-  (`CADDY_UPSTREAM`), o como mucho publica en `127.0.0.1`. Un puerto abierto se
-  salta UFW y saca la app de detrás de Caddy — que es lo único que sostiene el
-  trust boundary (Caddy sobrescribe `x-forwarded-for` con la IP real; sin eso,
-  cualquier rate-limit por IP se bombea rotando una cabecera).
+- **El Caddy central corre en `network_mode: host`**, así que **no existe red
+  docker compartida** con los proyectos: un contenedor en modo host **no se puede
+  conectar a una red bridge** (docker lo rechaza: *"container sharing network
+  namespace with another container or host cannot be connected to any other
+  network"*). Por eso Caddy llega a la app por **loopback**, nunca por nombre de
+  servicio docker: `reverse_proxy web:3000` no resolvería jamás.
+- **web publica SOLO en `127.0.0.1:WEB_PORT`, nunca en `0.0.0.0`.** Un puerto
+  abierto por docker **se salta UFW** (docker escribe sus propias reglas de
+  iptables por debajo del firewall) y saca la app de detrás de Caddy.
+- **Cada proyecto reserva un bloque de 10 puertos** en el registro de
+  `~/AGENTS.md` (desde el 3100). `WEB_PORT` en `deploy.env` es el del proyecto.
+  Reservarlo allí es parte de la tarea de deploy, no un detalle administrativo:
+  es lo que impide que dos proyectos colisionen en el mismo puerto.
+- **La IP real del cliente NO es la del socket ni la de `x-forwarded-for`.** Con
+  Cloudflare en proxy naranja hay **dos** proxies delante, y el origen solo ve
+  IPs de Cloudflare. El site file que genera `redeploy.sh` fija
+  `header_up X-Forwarded-For {client_ip}` — eso deja el header fuera del control
+  del cliente (necesario), pero su valor es **la IP de Cloudflare**, no la del
+  visitante. **La IP real llega en `CF-Connecting-IP`**: es la que debe usar todo
+  rate-limit por IP y todo log de origen. Un rate-limit que confíe en
+  `x-forwarded-for` detrás de Cloudflare agrupa a TODOS los visitantes en un
+  puñado de IPs de borde: castiga a inocentes y el atacante lo esquiva rotando de
+  borde. Si algún día se quita el proxy naranja, `x-forwarded-for` vuelve a ser
+  la fuente correcta — decide con la topología delante, no por costumbre.
 - **Los secretos viven solo en el VPS** (`REMOTE_DIR/.env`, gitignored). El modo
   `--rsync` excluye `.env` a propósito; `deploy.env` (committeado) no lleva
   ninguno.
@@ -83,7 +107,8 @@ Internet → CDN/proxy opcional (Cloudflare, SSL Full strict)
 
 Qué hace, en orden: sincroniza el código → deja huella del commit desplegado en
 `REMOTE_DIR/.deployed` → reconstruye las imágenes → espera a que web esté
-`healthy` → asegura red + site block del Caddy central → **verifica desde fuera**.
+`healthy` → asegura el site block del Caddy central y recarga → **verifica desde
+fuera**.
 
 **No corre `pnpm gate`.** Correr los tests es decisión tuya antes de desplegar.
 
@@ -183,8 +208,27 @@ docker exec $CADDY_CONTAINER caddy reload   --config /etc/caddy/Caddyfile
 ```
 
 El Caddyfile central debe tener `import sites/*.caddy`; cada proyecto del VPS
-aporta su fichero. `redeploy.sh` lo crea si no existe (con `reverse_proxy
-CADDY_UPSTREAM`) y recarga.
+aporta su fichero. `redeploy.sh` lo crea si no existe y recarga siempre. El
+bloque que genera es el mínimo correcto:
+
+```caddy
+<dominio> {
+	reverse_proxy 127.0.0.1:<WEB_PORT> {
+		header_up X-Forwarded-For {client_ip}
+	}
+}
+```
+
+`header_up X-Forwarded-For {client_ip}` **sobrescribe** el header en vez de
+añadirse a lo que mandara el cliente: sin él, `x-forwarded-for` sigue siendo en
+parte controlable por quien llama. (Ojo: sobrescribir no te da la IP del
+visitante si hay Cloudflare delante — §Topología.)
+
+**Si el proyecto tiene SSE**, ese bloque no basta: la ruta de eventos necesita su
+propio `handle` con `flush_interval -1` y **sin `encode`** (comprimir un
+`event-stream` también lo bufferiza, y los eventos llegan a ráfagas). `redeploy.sh`
+no lo genera —no puede saber tu ruta de eventos—: se edita a mano una vez y se
+recarga. Igual con `encode gzip` para el resto del sitio, si lo quieres.
 
 ## Acceso
 

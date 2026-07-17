@@ -32,7 +32,10 @@ warn() { printf '  \033[33m⚠\033[0m %s\n' "$1"; }
 # shellcheck disable=SC1090
 . "$DEPLOY_ENV"
 
-for var in PROJECT_NAME DOMAIN VPS_IP VPS_SSH REMOTE_DIR; do
+# WEB_PORT es obligatorio: el Caddy central corre en network_mode host y llega a
+# la app por loopback (no hay red docker compartida), así que sin puerto no hay
+# ni publicación ni upstream. Debe salir del registro de bloques de ~/AGENTS.md.
+for var in PROJECT_NAME DOMAIN WEB_PORT VPS_IP VPS_SSH REMOTE_DIR; do
   val="${!var:-}"
   if [ -z "$val" ] || [[ "$val" == *'{{'* ]]; then
     bad "deploy.env: $var sin rellenar (vale '${val:-<vacío>}')."
@@ -50,8 +53,9 @@ HEALTH_PATH="${HEALTH_PATH:-/api/health}"
 VERIFY_ROOT_EXPECT="${VERIFY_ROOT_EXPECT:-200}"
 CADDY_DIR="${CADDY_DIR:-/home/developer/infra/caddy}"
 CADDY_CONTAINER="${CADDY_CONTAINER:-edge-caddy}"
-EDGE_NETWORK="${EDGE_NETWORK:-edge}"
-CADDY_UPSTREAM="${CADDY_UPSTREAM:-web:3000}"
+# El upstream es SIEMPRE loopback: el Caddy central está en network_mode host y
+# no puede resolver nombres de servicio docker (ver SKILL.md §Topología).
+CADDY_UPSTREAM="${CADDY_UPSTREAM:-127.0.0.1:$WEB_PORT}"
 BACKUP_DIR="${BACKUP_DIR:-/home/developer/backups/$PROJECT_NAME}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-packages/db/drizzle}"
 
