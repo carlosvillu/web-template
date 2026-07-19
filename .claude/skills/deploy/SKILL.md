@@ -103,6 +103,7 @@ Internet → Cloudflare (DNS + proxy naranja, SSL Full strict)
 .claude/skills/deploy/scripts/redeploy.sh            # autodetecta el modo; sync por git
 .claude/skills/deploy/scripts/redeploy.sh --rsync    # (remote) el árbol local tal cual
 .claude/skills/deploy/scripts/redeploy.sh --no-sync  # (local) no toques git: lo que hay
+.claude/skills/deploy/scripts/redeploy.sh --allow-dirty  # (local) árbol sucio DELIBERADO
 ```
 
 Qué hace, en orden: sincroniza el código → deja huella del commit desplegado en
@@ -111,6 +112,14 @@ Qué hace, en orden: sincroniza el código → deja huella del commit desplegado
 fuera**.
 
 **No corre `pnpm gate`.** Correr los tests es decisión tuya antes de desplegar.
+
+**Guarda de árbol limpio (modo local): `redeploy.sh` ABORTA con exit 1 si `git
+status --porcelain` no está vacío.** La imagen se construye desde el ÁRBOL
+(`COPY . .`), no desde HEAD: con el árbol sucio se despliega trabajo sin
+commitear ni verificar, y el único rastro sería un `+sin-commitear` en
+`.deployed`, que se lee tarde. Si necesitas desplegar trabajo sin commitear, ese
+es el propósito EXPLÍCITO de `--rsync` (que pasa `--allow-dirty` en su llamada
+delegada); con la rama git, commitea o stashea primero.
 
 **Las migraciones se aplican solas** al arrancar web (con lock). Por eso el deploy
 puede tardar: el healthcheck ya lo contempla.
@@ -240,6 +249,28 @@ del sistema, UFW, `/etc/deploy-target`), prepara el comando exacto y **pídeselo
 al humano**; no intentes rodearlo.
 
 ## Trampas conocidas (genéricas, ya mordieron)
+
+**En el VPS, el `.env` de la RAÍZ del repo ES el `.env` de PRODUCCIÓN.**
+`REMOTE_DIR` apunta a la raíz del repo y `docker-compose.prod.yml` hace
+`env_file: .env` — no hay dos ficheros. Ya causó un incidente real: se
+«corrigió» como deriva de desarrollo y se pisó la contraseña real de Postgres
+(minutos con la BD inaccesible desde la web). Regla operativa: si ese `.env`
+tiene una contraseña fuerte generada en vez de un literal `*-not-a-secret`,
+**no se pisa** — esa discrepancia es la señal de que tu premisa sobre el
+fichero está mal. Para desarrollar en el VPS: el compose de dev con proyecto,
+contenedor, volumen y credenciales PROPIOS (nunca los mismos nombres que prod).
+
+**`postgres` solo aplica `POSTGRES_PASSWORD` con el data dir VACÍO.** Con un
+volumen ya inicializado, cambiar la variable no cambia nada: la web arranca
+pidiendo la contraseña nueva contra la vieja → `28P01`, migraciones fallando en
+bucle y health con `db:false` (la app viva). Ha mordido varias veces. Rotar
+contraseña = `ALTER ROLE` o recrear el volumen, nunca solo editar el `.env`.
+
+**Un 525 justo después del PRIMER deploy de un dominio NO es config rota.**
+`verify.sh` puede correr antes de que el Caddy central termine de obtener el
+primer certificado (carrera de aprovisionamiento observada: el cert llegó
+segundos después del verify). Reintenta tras unos segundos y mira los logs de
+Caddy (`certificate obtained successfully`) antes de tocar nada.
 
 **`VAR: ${VAR:-}` en compose no significa "sin valor": significa cadena vacía.**
 La variable se define igualmente aunque no esté en el `.env`, y el código que

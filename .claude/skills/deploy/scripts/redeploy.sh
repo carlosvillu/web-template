@@ -14,19 +14,21 @@
 #       ./redeploy.sh --rsync       # (remote) envía el árbol local tal cual, sin git
 #       ./redeploy.sh --local|--remote   # fuerza el modo
 #       ./redeploy.sh --no-sync     # (local) no toques git: despliega lo que hay
+#       ./redeploy.sh --allow-dirty # (local) permite desplegar con el árbol SUCIO
 #
 # Cuándo --rsync: cuando quieres probar en producción algo que aún no está
 # pusheado (legítimo, pero deja huella "+sin-commitear" en .deployed para que
 # verify.sh delate la deriva). El camino canónico es git: el bucle SÍ hace push.
 set -euo pipefail
 
-SYNC="git"; NO_SYNC=0
+SYNC="git"; NO_SYNC=0; ALLOW_DIRTY=0
 for arg in "$@"; do
   case "$arg" in
     --local)  export DEPLOY_MODE=local ;;
     --remote) export DEPLOY_MODE=remote ;;
     --rsync)  SYNC="rsync" ;;
     --no-sync) NO_SYNC=1 ;;
+    --allow-dirty) ALLOW_DIRTY=1 ;;
     *) echo "flag desconocida: $arg" >&2; exit 1 ;;
   esac
 done
@@ -73,13 +75,39 @@ if [ "$MODE" = "remote" ]; then
     DIRTY=$([ -n "$(git status --porcelain)" ] && echo '+sin-commitear' || echo '')
     write_footprint "$(git rev-parse --short HEAD)$DIRTY"
     step "2/2 · Ejecutando el deploy EN el VPS (modo local, sin tocar git)"
+    # `--allow-dirty` es OBLIGATORIO aquí: rsync acaba de dejar el árbol del VPS
+    # idéntico al local (posiblemente sucio) — desplegar trabajo sin commitear es
+    # SU propósito, y sin la flag la guarda de árbol limpio abortaría siempre.
     exec ssh -o BatchMode=yes "$VPS_SSH" \
-      "cd $REMOTE_DIR && DEPLOY_MODE=local .claude/skills/deploy/scripts/redeploy.sh --no-sync"
+      "cd $REMOTE_DIR && DEPLOY_MODE=local .claude/skills/deploy/scripts/redeploy.sh --no-sync --allow-dirty"
   fi
 fi
 
 # ═══ MODO LOCAL: estamos EN el VPS ════════════════════════════════════════════
 step "Modo LOCAL (este host ES producción: $REMOTE_DIR)"
+
+# Guarda de árbol limpio: la imagen se construye desde el ÁRBOL (COPY . .), no
+# desde HEAD. Con el árbol sucio se despliega trabajo sin commitear ni verificar,
+# y el único rastro sería un '+sin-commitear' en .deployed, que se lee DESPUÉS
+# del deploy y no lo impide. Ya mordió en un proyecto real: un deploy se llevó a
+# producción una tarea a medio revisar. Con un humano lanzando el script es
+# recuperable; con el bucle desplegando solo, es cómo se cuela código sin
+# verificar. Va ANTES del `if NO_SYNC` a propósito: `--no-sync` («despliega lo
+# que hay») es justo el caso más expuesto.
+if [ "$ALLOW_DIRTY" = "0" ] && [ -n "$(git status --porcelain)" ]; then
+  echo "" >&2
+  echo "  ✗ ABORTADO: el árbol de trabajo tiene cambios sin commitear." >&2
+  echo "" >&2
+  echo "  Este script construye la imagen desde el ÁRBOL (COPY . .), no desde HEAD:" >&2
+  echo "  desplegaría código que nadie ha revisado ni verificado, y .deployed solo" >&2
+  echo "  lo delataría a posteriori con '+sin-commitear'." >&2
+  echo "" >&2
+  git status --short | head -10 >&2
+  echo "" >&2
+  echo "  Commitea (o stashea) y repite. Si el árbol sucio es DELIBERADO:" >&2
+  echo "      .claude/skills/deploy/scripts/redeploy.sh --allow-dirty" >&2
+  exit 1
+fi
 
 if [ "$NO_SYNC" = "0" ]; then
   step "1/5 · Actualizando main"
