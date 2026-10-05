@@ -1,6 +1,6 @@
 # Journal del dev-loop — {{PROJECT_NAME}}
 
-> Memoria del bucle entre sesiones. Append cronológico; una entrada por evento (tarea iniciada/cerrada, bloqueo, parada, decisión de arnés, cierre de fase, hotfix). **Escribe para el agente que retomará el trabajo sin tu contexto**: lo no obvio, las decisiones y sus porqués, las deudas — no un log de comandos. Nunca se reescriben entradas antiguas.
+> Memoria del bucle entre sesiones. **Orden inverso (la más reciente primero)**: cada entrada nueva se inserta justo debajo del marcador `ENTRADAS`, nunca al final. Una entrada por evento (tarea iniciada/cerrada, bloqueo, parada, decisión de arnés, cierre de fase, hotfix). **Escribe para el agente que retomará el trabajo sin tu contexto**: lo no obvio, las decisiones y sus porqués, las deudas — no un log de comandos. Nunca se reescriben entradas antiguas.
 
 ## Formatos de entrada
 
@@ -22,3 +22,5 @@
 ## <YYYY-MM-DD> · hotfix: <síntoma>
 - Trabajo fuera del planning (bug en producción/uso real): causa raíz, fix, test permanente que lo protege, y si destapa deuda mayor → candidata a fase de deuda (F<N>b) acordada con el usuario.
 ```
+
+<!-- ENTRADAS: la más reciente primero. Inserta cada entrada nueva justo debajo de esta línea. -->

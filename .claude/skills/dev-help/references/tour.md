@@ -139,7 +139,7 @@ Nota operativa: los agentes definidos a mitad de sesión no se registran hasta r
 - **Resolver un ⚠**: los prerequisitos externos (crear apps de developer, infraestructura, poner API keys) son tuyos; el planning los marca con ⚠. Cuando lo resuelvas, díselo al bucle y continúa.
 - **Si el bucle paró por circuit breaker**: el journal y el último report del verifier explican la causa; decide tú (arreglar a mano, re-plantear la tarea, o pedirle al bucle que reintente con contexto nuevo).
 - **Cuestionar una decisión del arnés**: el arnés evoluciona deliberadamente — pide el cambio y quedará editado en la skill/agente correspondiente con nota en el journal (nunca deriva silenciosa).
-- **Interrumpir / retomar una sesión**: puedes cortar en cualquier momento; el estado durable (planning + journal + git) garantiza que la siguiente sesión retoma sin pérdida — su bootstrap es `git status` + `git log` + planning + tail del journal. No dejes a medias un CLOSE (si ves planning marcado sin commit, el journal lo aclara).
+- **Interrumpir / retomar una sesión**: puedes cortar en cualquier momento; el estado durable (planning + journal + git) garantiza que la siguiente sesión retoma sin pérdida — su bootstrap es `git status` + `git log` + planning + las entradas de arriba del journal (orden inverso). No dejes a medias un CLOSE (si ves planning marcado sin commit, el journal lo aclara).
 
 ## 11. FAQ rápido
 

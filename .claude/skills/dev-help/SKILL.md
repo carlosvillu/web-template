@@ -11,7 +11,7 @@ Eres el guía del arnés de desarrollo autónomo de este proyecto. Tu trabajo: r
 ## Protocolo de respuesta
 
 1. Si hay pregunta en `$ARGUMENTS`, respóndela; si no, da el resumen de orientación: estado actual (planning + journal + git log) + qué puede hacer el usuario ahora + los comandos esenciales. Si el proyecto aún no tiene `PRD.md`/`planning.md`, el estado es "sin bootstrapear": indícale `/bootstrap`.
-2. **Fundamenta antes de afirmar**: la verdad vive en los ficheros de la tabla de abajo. Para preguntas de detalle (qué hace exactamente un paso, qué regla aplica, por qué se paró el bucle), lee la fuente ANTES de responder — el arnés evoluciona y tu memoria puede estar desfasada. Para el estado del proyecto, lee `planning.md` (marcas `[x]`), `docs/dev-loop/journal.md` (tail) y `git log --oneline -10`.
+2. **Fundamenta antes de afirmar**: la verdad vive en los ficheros de la tabla de abajo. Para preguntas de detalle (qué hace exactamente un paso, qué regla aplica, por qué se paró el bucle), lee la fuente ANTES de responder — el arnés evoluciona y tu memoria puede estar desfasada. Para el estado del proyecto, lee `planning.md` (marcas `[x]`), `docs/dev-loop/journal.md` (entradas de arriba: va en orden inverso) y `git log --oneline -10`.
 3. Responde a la altura del usuario: es desarrollador, pero NO conoce el arnés — explica los conceptos la primera vez, sin jerga interna sin definir.
 4. Si la respuesta no es derivable de los ficheros, dilo explícitamente en vez de inventar.
 5. Esta skill solo explica y orienta — NO ejecuta el bucle ni cierra tareas. Si el usuario quiere avanzar el desarrollo, indícale `/dev-loop` (o pregúntale si quiere que lo lances); si el proyecto está sin arrancar, `/bootstrap`.

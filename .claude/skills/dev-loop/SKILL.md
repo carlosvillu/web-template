@@ -22,7 +22,7 @@ Protocolo vinculante para avanzar `planning.md`. Fue diseñado sobre hallazgos v
 
 1. `git log --oneline -5` y `git status` (árbol limpio; si hay restos de una sesión anterior, entiéndelos antes de seguir — el journal explica).
 2. Leer el **Estado global** y las tareas de la fase en curso en `planning.md`; calcular la siguiente tarea elegible: todas sus `Depende de` marcadas `[x]`, sin ⚠ pendiente del usuario.
-3. Tail de `docs/dev-loop/journal.md` (últimas ~3 entradas): bloqueos abiertos, rarezas, decisiones.
+3. Cabeza de `docs/dev-loop/journal.md` (las ~3 primeras entradas bajo el marcador `ENTRADAS` — el journal va en orden inverso, lo más reciente arriba): bloqueos abiertos, rarezas, decisiones.
 
 ## El ciclo por tarea
 
@@ -34,7 +34,7 @@ Compón el brief del implementer (acotado — el agente lee lo que necesite, no 
 - **Enumera TODOS los bullets de la entrada de la tarea en `planning.md`**, no solo Entrega/Subtareas/Verificación: también `Mockup`, `Playwright permanente` (DoD bloqueante), `Deuda heredada`, notas de desviación, etc. Un entregable declarado que se te escape del brief bloquea el cierre y obliga a completarlo tarde. Antes de escribir el brief, además: **grep de guards `hasta T<ID>` / `DESHABILITADO` en `package.json` y scripts** — señalan trabajo de infra que ESTA tarea debe activar.
 - Texto **literal** de esos bullets + los `§` del PRD que la tarea cite.
 - Lista de references a leer ANTES de codificar, según las tablas de decisión de las skills `backend`/`frontend`/`testing` (p. ej. "vas a tocar tabla+repo → backend/references/db.md + testing/references/db-integration.md"; "deja spec Playwright → testing/references/e2e.md").
-- Contexto vivo: tail del journal si afecta, decisiones de tareas anteriores relevantes.
+- Contexto vivo: entradas recientes del journal (las de arriba) si afectan, decisiones de tareas anteriores relevantes.
 - Recordatorio de sus reglas duras (están en su definición de agente, pero el brief las repite en 1 línea).
 
 ### 3 · IMPLEMENT
@@ -137,7 +137,7 @@ Cap = coste estimado en el planning ×3 (mín. $1). Antes de una verificación c
 
 ## Journal — `docs/dev-loop/journal.md`
 
-Append cronológico, una entrada por evento (tarea cerrada, bloqueo, parada, decisión). Formato:
+**Orden inverso: la entrada más reciente primero.** Cada entrada nueva se inserta justo debajo del marcador `<!-- ENTRADAS: … -->` (ancla única para el Edit), nunca al final del fichero. Así cualquier lectura parcial —un Read que trunca, un `head`, un humano en GitHub— cae primero en lo vigente. Una entrada por evento (tarea cerrada, bloqueo, parada, decisión). Formato:
 
 ```markdown
 ## <fecha> · T<ID> cerrada — PASS
@@ -147,6 +147,8 @@ Append cronológico, una entrada por evento (tarea cerrada, bloqueo, parada, dec
 ```
 
 El journal es la memoria del bucle entre sesiones: escribe para el agente que retomará esto sin tu contexto.
+
+**Journals heredados**: si `journal.md` no tiene el marcador `ENTRADAS`, es del formato antiguo (cronológico, lo nuevo al final): léelo por el final y no lo reordenes por tu cuenta. Migrarlo es una decisión de arnés explícita (invertir una vez, añadir el marcador y anotar `arnés: journal pasa a orden inverso`).
 
 ## Memoria de incidentes del proyecto
 

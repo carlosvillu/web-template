@@ -77,7 +77,7 @@ El stack es FIJO (pnpm workspaces TS · Next.js App Router + Tailwind v4 CSS-fir
 ## Etapa 5 · Cierre
 
 1. **Placeholders**: rellena `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, URL del DS, remote, licencia y demás en `CLAUDE.md`, `AGENTS.md` y `README.md` (grep de `{{` para no dejar ninguno; verifica que los marcadores STATUS-TABLE del README siguen intactos).
-2. **Journal**: añade a `docs/dev-loop/journal.md` la primera entrada `## <fecha> · Proyecto bootstrapeado` (decisiones de las etapas 0-4: módulos F0 elegidos, licencia, repo, URL del DS, deudas del arnés como "sin remote → CI pendiente").
+2. **Journal**: inserta en `docs/dev-loop/journal.md`, justo debajo del marcador `ENTRADAS`, la primera entrada `## <fecha> · Proyecto bootstrapeado` (decisiones de las etapas 0-4: módulos F0 elegidos, licencia, repo, URL del DS, deudas del arnés como "sin remote → CI pendiente").
 3. **LICENSE** según lo elegido en la etapa 0 (año + nombre del usuario).
 4. `pnpm readme:status:check` no puede fallar por formato de la tabla (si falla, arregla el planning, no el script).
 5. **Primer commit**: `bootstrap: PRD v1, planning and project seed` (incluye PRD.md, planning.md, research/, docs, LICENSE, placeholders). Push solo si hay remote configurado y el usuario lo pidió.
