@@ -44,7 +44,7 @@ El trabajo avanza tarea a tarea de `planning.md` vía la skill **`dev-loop`** (i
 
 ## Arranque de sesión (bootstrap de contexto)
 
-Antes de tocar nada: (1) `git log --oneline -5`, (2) estado de `planning.md` (próxima tarea elegible por el grafo `Depende de`), (3) tail de `docs/dev-loop/journal.md`. Con eso se retoma el trabajo sin depender del contexto de sesiones anteriores.
+Antes de tocar nada: (1) `git log --oneline -5`, (2) estado de `planning.md` (próxima tarea elegible por el grafo `Depende de`), (3) las primeras entradas de `docs/dev-loop/journal.md` (orden inverso: lo más reciente arriba). Con eso se retoma el trabajo sin depender del contexto de sesiones anteriores.
 
 ## Convenciones transversales
 
